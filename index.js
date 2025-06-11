@@ -33,6 +33,22 @@ async function run() {
       const result = await booksCollection.find().toArray()
       res.send(result)
     })
+
+    app.get('/books/categories', async(req, res) => {
+      const books = await booksCollection.find().toArray();
+      const categoryCount = {}
+      books.forEach(book=> {
+        const category = book.book_category
+        if (categoryCount[category]) {
+          categoryCount[category]++
+        } else{
+          categoryCount[category] = 1
+        }
+      })
+
+      console.log(categoryCount);
+      res.send(categoryCount);
+    })
     
 
     await client.db("admin").command({ ping: 1 });
