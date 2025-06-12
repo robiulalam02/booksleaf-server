@@ -27,7 +27,8 @@ const client = new MongoClient(uri, {
 async function run() {
   try { 
     
-    const booksCollection = client.db('booksleaf').collection('books')
+    const booksCollection = client.db('booksleaf').collection('books');
+    const usersCollection = client.db('booksleaf').collection('users');
 
     app.get('/books', async(req, res) => {
       const result = await booksCollection.find().toArray()
@@ -48,6 +49,12 @@ async function run() {
 
       console.log(categoryCount);
       res.send(categoryCount);
+    })
+
+    app.post('/users', async(req, res) => {
+      const userData = req.body;
+      const result = await usersCollection.insertOne(userData);
+      res.send(result);
     })
     
 
