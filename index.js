@@ -47,7 +47,6 @@ async function run() {
         }
       })
 
-      console.log(categoryCount);
       res.send(categoryCount);
     })
 
@@ -58,13 +57,18 @@ async function run() {
       res.send(result);
     })
 
+    app.post('/books', async(req, res) => {
+      const booksData = req.body;
+      const result = await booksCollection.insertOne(booksData);
+      res.send(result);
+    })
+
     app.post('/users', async(req, res) => {
       const userData = req.body;
       const result = await usersCollection.insertOne(userData);
       res.send(result);
     })
     
-
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
