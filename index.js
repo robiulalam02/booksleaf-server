@@ -25,24 +25,31 @@ const client = new MongoClient(uri, {
 });
 
 async function run() {
-  try { 
-    
+  try {
+
     const booksCollection = client.db('booksleaf').collection('books');
     const usersCollection = client.db('booksleaf').collection('users');
 
-    app.get('/books', async(req, res) => {
-      const result = await booksCollection.find().toArray()
+    app.get('/books', async (req, res) => {
+      const email = req.query.user_email;
+
+      const query = {}
+      if (email) {
+        query.user_email = email
+      }
+
+      const result = await booksCollection.find(query).toArray()
       res.send(result)
     })
 
-    app.get('/books/categories', async(req, res) => {
+    app.get('/books/categories', async (req, res) => {
       const books = await booksCollection.find().toArray();
       const categoryCount = {}
-      books.forEach(book=> {
+      books.forEach(book => {
         const category = book.book_category
         if (categoryCount[category]) {
           categoryCount[category]++
-        } else{
+        } else {
           categoryCount[category] = 1
         }
       })
@@ -50,25 +57,46 @@ async function run() {
       res.send(categoryCount);
     })
 
-    app.get('/books/:id', async(req, res) => {
+    app.get('/books/:id', async (req, res) => {
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)};
+      const query = { _id: new ObjectId(id) };
       const result = await booksCollection.findOne(query);
       res.send(result);
     })
 
-    app.post('/books', async(req, res) => {
+    app.post('/books', async (req, res) => {
       const booksData = req.body;
       const result = await booksCollection.insertOne(booksData);
       res.send(result);
     })
 
-    app.post('/users', async(req, res) => {
+    app.post('/users', async (req, res) => {
       const userData = req.body;
       const result = await usersCollection.insertOne(userData);
       res.send(result);
     })
-    
+
+    app.put('/books/:id', async (req, res) => {
+      const id = req.params.id;
+      const bookDetails = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          bookDetails
+        },
+      };
+      const result = await booksCollection.updateOne(filter, updateDoc);
+      console.log(result);
+      res.send(result);
+    })
+
+    app.delete('/books/:id', async(req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await booksCollection.deleteOne(query);
+      res.send(result);
+    })
+
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
