@@ -42,6 +42,25 @@ async function run() {
       res.send(result)
     })
 
+    app.get('/mybooks/categories', async(req, res) => {
+      const email = req.query.user_email;
+      const query = {user_email: email};
+      const books = await booksCollection.find(query).toArray();
+
+      const categoryCount = {}
+      books.forEach(book => {
+        const category = book.book_category
+        if (categoryCount[category]) {
+          categoryCount[category]++
+        } else {
+          categoryCount[category] = 1
+        }
+      })
+
+      res.send(categoryCount);
+
+    })
+
     app.get('/books/categories', async (req, res) => {
       const books = await booksCollection.find().toArray();
       const categoryCount = {}
@@ -54,6 +73,7 @@ async function run() {
         }
       })
 
+      console.log(categoryCount);
       res.send(categoryCount);
     })
 
