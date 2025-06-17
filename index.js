@@ -29,6 +29,7 @@ async function run() {
 
     const booksCollection = client.db('booksleaf').collection('books');
     const usersCollection = client.db('booksleaf').collection('users');
+    const reviewsCollection = client.db('booksleaf').collection('reviews');
 
     app.get('/books', async (req, res) => {
       const email = req.query.user_email;
@@ -42,9 +43,9 @@ async function run() {
       res.send(result)
     })
 
-    app.get('/mybooks/categories', async(req, res) => {
+    app.get('/mybooks/categories', async (req, res) => {
       const email = req.query.user_email;
-      const query = {user_email: email};
+      const query = { user_email: email };
       const books = await booksCollection.find(query).toArray();
 
       const categoryCount = {}
@@ -84,6 +85,19 @@ async function run() {
       res.send(result);
     })
 
+    app.get('/reviews', async(req, res) => {
+      const result = await reviewsCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.get('/reviews/:id', async(req, res) => {
+      const id = req.params.id;
+      const query = {book_id: id}
+      const result = await reviewsCollection.find(query).toArray();
+      console.log(result);
+      res.send(result)
+    })
+
     app.post('/books', async (req, res) => {
       const booksData = req.body;
       const result = await booksCollection.insertOne(booksData);
@@ -94,6 +108,12 @@ async function run() {
       const userData = req.body;
       const result = await usersCollection.insertOne(userData);
       res.send(result);
+    })  
+
+    app.post('/reviews', async (req, res) => {
+      const review = req.body;
+      const result = await reviewsCollection.insertOne(review);
+      res.send(result)
     })
 
     app.put('/books/:id', async (req, res) => {
@@ -106,11 +126,23 @@ async function run() {
         },
       };
       const result = await booksCollection.updateOne(filter, updateDoc);
-      console.log(result);
       res.send(result);
     })
 
-    app.delete('/books/:id', async(req, res) => {
+    app.patch('/upvote/:id', async (req, res) => {
+      const id = req.params.id;
+      const { upvote } = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = upvote && {
+        $inc: {
+          upvotes: 1
+        }
+      }
+      const result = await booksCollection.updateOne(filter, updateDoc);
+      res.send(result)
+    })
+
+    app.delete('/books/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await booksCollection.deleteOne(query);
