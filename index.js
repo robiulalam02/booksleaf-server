@@ -1,13 +1,47 @@
-require('dotenv').config();
-const express = require('express')
 var cors = require('cors')
+require('dotenv').config()
+const express = require('express')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express()
 const port = process.env.PORT || 3000
+var admin = require("firebase-admin");
+var serviceAccount = require("./firebase_secret.json");
 
 // middlewares
-app.use(cors())
+app.use(cors({
+  origin: ["https://booksleaf-7a4b5.web.app", "http://localhost:5173"],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+}))
 app.use(express.json())
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+// verify token
+const verifyToken = async (req, res, next) => {
+  const header = req.headers?.authorization;
+  if (!header || !header?.startsWith('Bearer ')) {
+    return res.status(401).send('Unauthorized access');
+  }
+  const token = header?.split(' ')[1];
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.decoded = decoded;
+    next()
+  } catch {
+    return res.status(401).send('Unauthorized access');
+  }
+}
+
+const verifyTokenEmail = (req, res, next) => {
+  const email = req.query.user_email;
+  if (email !== req.decoded.email) {
+    return res.status(403).send('Forbidden access');
+  }
+  next();
+}
 
 // database user
 const user = process.env.DB_USER
@@ -31,7 +65,12 @@ async function run() {
     const usersCollection = client.db('booksleaf').collection('users');
     const reviewsCollection = client.db('booksleaf').collection('reviews');
 
-    app.get('/books', async (req, res) => {
+    app.get('/books', async(req, res) => {
+      const result = await booksCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.get('/mybooks', verifyToken, verifyTokenEmail, async (req, res) => {
       const email = req.query.user_email;
 
       const query = {}
@@ -43,7 +82,7 @@ async function run() {
       res.send(result)
     })
 
-    app.get('/mybooks/categories', async (req, res) => {
+    app.get('/mybooks/categories', verifyToken, verifyTokenEmail,  async (req, res) => {
       const email = req.query.user_email;
       const query = { user_email: email };
       const books = await booksCollection.find(query).toArray();
@@ -73,29 +112,28 @@ async function run() {
           categoryCount[category] = 1
         }
       })
-
-      console.log(categoryCount);
       res.send(categoryCount);
     })
 
-    app.get('/books/:id', async (req, res) => {
+    app.get('/books/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await booksCollection.findOne(query);
       res.send(result);
     })
 
-    app.get('/reviews', async(req, res) => {
+    app.get('/reviews', async (req, res) => {
       const result = await reviewsCollection.find().toArray();
       res.send(result);
     })
 
-    app.get('/reviews/:id', async(req, res) => {
+    app.get('/reviews/:id', async (req, res) => {
       const id = req.params.id;
-      const query = {book_id: id}
+      console.log(id);
+      const query = { book_id: id }
       const result = await reviewsCollection.find(query).toArray();
+      res.send(result);
       console.log(result);
-      res.send(result)
     })
 
     app.post('/books', async (req, res) => {
@@ -108,7 +146,7 @@ async function run() {
       const userData = req.body;
       const result = await usersCollection.insertOne(userData);
       res.send(result);
-    })  
+    })
 
     app.post('/reviews', async (req, res) => {
       const review = req.body;
@@ -129,6 +167,20 @@ async function run() {
       res.send(result);
     })
 
+    app.patch('/reviews/:id', async (req, res) => {
+      const id = req.params.id;
+      const { review, date } = req.body;
+      const filter = { _id: new ObjectId(id) }
+      const updateDoc = {
+        $set: {
+          review: review,
+          date: date
+        },
+      };
+      const result = await reviewsCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    })
+
     app.patch('/upvote/:id', async (req, res) => {
       const id = req.params.id;
       const { upvote } = req.body;
@@ -142,6 +194,19 @@ async function run() {
       res.send(result)
     })
 
+    app.patch('/books/:id', async (req, res) => {
+      const id = req.params.id;
+      const { status } = req.body;
+      const filter = { _id: new ObjectId(id) }
+      const updateDoc = {
+        $set: {
+          reading_status: status
+        }
+      }
+      const result = await booksCollection.updateOne(filter, updateDoc);
+      res.send(result)
+    })
+
     app.delete('/books/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -149,8 +214,8 @@ async function run() {
       res.send(result);
     })
 
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
   }
