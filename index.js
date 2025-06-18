@@ -9,8 +9,7 @@ var serviceAccount = require("./firebase_secret.json");
 
 // middlewares
 app.use(cors({
-  origin: ["https://booksleaf-7a4b5.web.app", "http://localhost:5173"],
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  origin: ["http://localhost:5173", "https://booksleaf-7a4b5.web.app"]
 }))
 app.use(express.json())
 
@@ -117,6 +116,7 @@ async function run() {
 
     app.get('/books/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
+      console.log(id);
       const query = { _id: new ObjectId(id) };
       const result = await booksCollection.findOne(query);
       res.send(result);
