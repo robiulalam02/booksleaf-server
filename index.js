@@ -64,10 +64,46 @@ async function run() {
     const usersCollection = client.db('booksleaf').collection('users');
     const reviewsCollection = client.db('booksleaf').collection('reviews');
 
-    app.get('/books', async(req, res) => {
-      const result = await booksCollection.find().toArray();
-      res.send(result);
-    })
+    app.get('/books', async (req, res) => {
+      try {
+        const { search = "", category = "All", sort = "" } = req.query;
+
+        console.log(sort)
+
+        // Build MongoDB filter
+        const query = {};
+
+        // Search by title or author
+        if (search) {
+          query.$or = [
+            { book_title: { $regex: search, $options: "i" } },
+            { book_author: { $regex: search, $options: "i" } }
+          ];
+        }
+
+        // Filter by category (skip if "All")
+        if (category && category !== "All") {
+          query.book_category = category.toLowerCase(); // make sure data matches lowercase
+        }
+
+        // Sorting
+        let sortOption = {};
+        if (sort === "top") {
+          sortOption = { upvotes: -1 }; // highest first
+        } else if (sort === "lowest") {
+          sortOption = { upvotes: 1 }; // lowest first
+        }
+
+        const result = await booksCollection.find(query).sort(sortOption).toArray();
+
+        res.send(result);
+        console.log(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Error fetching books" });
+      }
+    });
+
 
     app.get('/mybooks', verifyToken, verifyTokenEmail, async (req, res) => {
       const email = req.query.user_email;
@@ -81,7 +117,7 @@ async function run() {
       res.send(result)
     })
 
-    app.get('/mybooks/categories', verifyToken, verifyTokenEmail,  async (req, res) => {
+    app.get('/mybooks/categories', verifyToken, verifyTokenEmail, async (req, res) => {
       const email = req.query.user_email;
       const query = { user_email: email };
       const books = await booksCollection.find(query).toArray();
@@ -183,9 +219,8 @@ async function run() {
 
     app.patch('/upvote/:id', async (req, res) => {
       const id = req.params.id;
-      const { upvote } = req.body;
       const filter = { _id: new ObjectId(id) };
-      const updateDoc = upvote && {
+      const updateDoc = {
         $inc: {
           upvotes: 1
         }
