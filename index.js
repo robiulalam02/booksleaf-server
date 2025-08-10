@@ -6,6 +6,7 @@ const app = express()
 const port = process.env.PORT || 3000
 var admin = require("firebase-admin");
 var serviceAccount = require("./firebase_secret.json");
+const nodemailer = require('nodemailer');
 
 // middlewares
 app.use(cors({
@@ -42,6 +43,15 @@ const verifyTokenEmail = (req, res, next) => {
   next();
 }
 
+// Create transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
 // database user
 const user = process.env.DB_USER
 const password = process.env.DB_PASS
@@ -63,6 +73,28 @@ async function run() {
     const booksCollection = client.db('booksleaf').collection('books');
     const usersCollection = client.db('booksleaf').collection('users');
     const reviewsCollection = client.db('booksleaf').collection('reviews');
+
+    app.post('/contact', async (req, res) => {
+      const { name, email, message } = req.body;
+
+      console.log(message)
+
+      // Email options
+      const mailOptions = {
+        from: email,
+        to: process.env.EMAIL_USER,
+        subject: `New Contact Message from ${name}`,
+        text: `You have a new message from your website contact form.\n\nName: ${name}\nEmail: ${email}\nMessage: ${message}`,
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        res.json({ message: 'Message sent successfully' });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to send message' });
+      }
+    });
 
     app.get('/books', async (req, res) => {
       try {
